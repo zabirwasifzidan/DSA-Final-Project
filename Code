@@ -1,0 +1,147 @@
+import collections
+
+# --- 1. Data Structures Initialization ---
+movie_registry = {}  
+viewing_history = collections.deque(maxlen=5)  
+movie_graph = collections.defaultdict(list)  
+
+# --- 2. Core Functions ---
+
+def add_movie(movie_id, title, genres):
+    """Adds a new movie to the registry."""
+    movie_registry[movie_id] = {
+        'title': title,
+        'genres': genres,
+        'total_sum': 0,
+        'count': 0,
+        'mean': 0.0
+    }
+
+def build_movie_graph():
+    """Connects movies that share at least one genre."""
+    ids = list(movie_registry.keys())
+    for i in range(len(ids)):
+        for j in range(i + 1, len(ids)):
+            id1, id2 = ids[i], ids[j]
+            if set(movie_registry[id1]['genres']) & set(movie_registry[id2]['genres']):
+                movie_graph[id1].append(id2)
+                movie_graph[id2].append(id1)
+
+def rate_movie(movie_id, rating):
+    """Updates ratings in O(1) and adds to history."""
+    if movie_id in movie_registry:
+        movie = movie_registry[movie_id]
+        movie['total_sum'] += rating
+        movie['count'] += 1
+        movie['mean'] = movie['total_sum'] / movie['count']
+        viewing_history.append(movie_id)
+        return True
+    return False
+
+def get_recommendations(start_movie_id):
+    """BFS traversal to find related movies."""
+    visited = {start_movie_id}
+    queue = collections.deque([start_movie_id])
+    recommendations = []
+
+    while queue:
+        current_node = queue.popleft()
+        for neighbor in movie_graph[current_node]:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                if neighbor not in viewing_history:
+                    recommendations.append(neighbor)
+                    queue.append(neighbor)
+                if len(recommendations) >= 5:
+                    return recommendations
+    return recommendations
+
+def get_top_five_movies():
+    """Sorts movies by mean rating and returns the top 5."""
+    # Sorting list of movies based on the 'mean' rating in descending order
+    sorted_movies = sorted(movie_registry.values(), key=lambda x: x['mean'], reverse=True)
+    return sorted_movies[:5]
+
+# --- 3. Dataset ---
+movies_list = [
+    (1, "Inception", ["Action", "Sci-Fi"]), (2, "The Matrix", ["Action", "Sci-Fi"]),
+    (3, "Interstellar", ["Sci-Fi", "Drama"]), (4, "The Dark Knight", ["Action", "Crime"]),
+    (5, "Pulp Fiction", ["Crime", "Drama"]), (6, "Toy Story", ["Animation", "Adventure"]),
+    (7, "Finding Nemo", ["Animation", "Adventure"]), (8, "The Lion King", ["Animation", "Drama"]),
+    (9, "The Godfather", ["Crime", "Drama"]), (10, "Gladiator", ["Action", "Adventure"]),
+    (11, "Avatar", ["Action", "Sci-Fi"]), (12, "Joker", ["Crime", "Drama"]),
+    (13, "Titanic", ["Drama", "Romance"]), (14, "The Avengers", ["Action", "Sci-Fi"]),
+    (15, "Spirited Away", ["Animation", "Fantasy"]), (16, "Parasite", ["Thriller", "Drama"]),
+    (17, "Coco", ["Animation", "Adventure"]), (18, "Dune", ["Sci-Fi", "Adventure"]),
+    (19, "Seven", ["Crime", "Thriller"]), (20, "Forrest Gump", ["Drama", "Romance"])
+]
+
+for mid, title, genres in movies_list:
+    add_movie(mid, title, genres)
+
+build_movie_graph()
+
+# --- 4. User Interface ---
+
+def run_app():
+    while True:
+        print("\n" + "="*40)
+        print("    MOVIE RECOMMENDATION SYSTEM (v1.0) ")
+        print("="*40)
+        print("1. View All Movies")
+        print("2. Rate & Watch a Movie")
+        print("3. View History (Last 5)")
+        print("4. Get Personalized Recommendations")
+        print("5. Top Five Movies")
+        print("6. Exit")
+        
+        user_choice = input("\nSelect an option (1-6): ")
+
+        if user_choice == '1':
+            print("\nAvailable Movie Registry:")
+            for mid, data in movie_registry.items():
+                print(f"ID [{mid}] - {data['title']} | Rating: {data['mean']:.1f}")
+        
+        elif user_choice == '2':
+            try:
+                mid = int(input("Enter Movie ID: "))
+                rating = float(input("Enter Rating (1.0 - 5.0): "))
+                if 1 <= rating <= 5 and rate_movie(mid, rating):
+                    print(f"\nSuccess! You watched '{movie_registry[mid]['title']}'.")
+                else:
+                    print("\nError: Invalid ID or Rating.")
+            except (ValueError, KeyError):
+                print("\nError: Please enter valid input.")
+
+        elif user_choice == '3':
+            print("\nViewing History (FIFO):")
+            if not viewing_history:
+                print("No history available.")
+            else:
+                for mid in viewing_history:
+                    print(f"- {movie_registry[mid]['title']}")
+
+        elif user_choice == '4':
+            if not viewing_history:
+                print("\nWatch a movie first to get recommendations.")
+            else:
+                last_watched_id = viewing_history[-1]
+                recs = get_recommendations(last_watched_id)
+                print(f"\nRecommendations based on '{movie_registry[last_watched_id]['title']}':")
+                for r_id in recs:
+                    print(f"-> {movie_registry[r_id]['title']}")
+
+        elif user_choice == '5':
+            print("\n--- Top 5 Highest Rated Movies ---")
+            top_movies = get_top_five_movies()
+            for i, movie in enumerate(top_movies, 1):
+                print(f"{i}. {movie['title']} (Rating: {movie['mean']:.1f})")
+
+        elif user_choice == '6':
+            print("Goodbye!")
+            break
+        else:
+            print("Invalid choice.")
+
+if __name__ == "__main__":
+    run_app()
